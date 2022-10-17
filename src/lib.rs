@@ -69,7 +69,7 @@ pub fn render(camera: &Camera, scene: &Scene, size: (usize, usize)) -> Vec<u32> 
 
 fn pixel(camera: &Camera, scene: &Scene, uv: Vec2) -> u32 {
     if let Some(ray_result) = raycast(&camera.ray(uv), scene) {
-        rgb_vec(ray_result.ray_hit.surface_normal)
+        rgb_vec(ray_result.ray_hit.surface_normal.abs())
     } else {
         SKY_COLOR
     }

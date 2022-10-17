@@ -36,7 +36,7 @@ impl Camera {
     }
 
     pub fn ray(&self, uv: Vec2) -> Ray {
-        let target = self.position + self.forward + uv.y * self.up + uv.x * self.up.cross(self.forward);
+        let target = self.position + self.forward - uv.y * self.up + uv.x * self.up.cross(self.forward);
         Ray {
             position: self.position,
             direction: target - self.position,
@@ -73,7 +73,7 @@ pub fn render(camera: &Camera, scene: &Scene, size: (usize, usize)) -> Vec<u32> 
 
 fn pixel(camera: &Camera, scene: &Scene, uv: Vec2) -> u32 {
     if let Some(ray_result) = raycast(&camera.ray(uv), scene) {
-        // rgb_vec(ray_result.ray_hit.surface_normal.abs())
+        // rgb_vec(ray_result.ray_hit.surface_normal)
         rgb_vec(light(&ray_result.ray_hit, scene))
     } else {
         SKY_COLOR
@@ -99,22 +99,19 @@ fn light(rayhit: &RayHit, scene: &Scene) -> Vec3 {
     
     let mut cumulative_light: Vec3 = Vec3::ZERO;
 
-    // TODO los caycast is not functioning correctly, lighting looks correct when shadowing logic is not included
     for light in scene.lights.iter() {
         // Check LOS first, see if we hit anything on the way to the light
-        // let los_ray = Ray {
-        //     position: rayhit.position + rayhit.surface_normal * 0.01,
-        //     direction: light.dir_from(&rayhit.position)
-        // };
+        let los_ray = Ray {
+            position: rayhit.position + rayhit.surface_normal * 0.001,
+            direction: light.dir_from(&rayhit.position)
+        };
 
-        // if let Some(los_rayhit) = raycast(&los_ray, scene) {
-        //     // If we hit something, then we are in shadow for this light source
-        //     continue;
-        // } else {
-        //     cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
-        // }
-        cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
-
+        if let Some(los_rayhit) = raycast(&los_ray, scene) {
+            // If we hit something, then we are in shadow for this light source
+            continue;
+        } else {
+            cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
+        }
     }
 
     cumulative_light

@@ -24,7 +24,7 @@ impl Default for DirectionalLight {
 
 impl LightEmitting for DirectionalLight {
     fn light_on(&self, _position: &Vec3, surface_normal: &Vec3) -> Vec3 {
-        surface_normal.dot(self.direction) * self.power
+        surface_normal.dot(-self.direction) * self.power
     }
 
     fn dir_from(&self, _position: &Vec3) -> Vec3 {

@@ -1,9 +1,12 @@
 pub mod objects;
+pub mod lights;
 
 use std::rc::Rc;
 
 use crate::objects::{Intersectable, RayHit};
-use glam::{IVec2, Vec2, Vec3};
+use crate::lights::*;
+
+use glam::{Vec2, Vec3};
 
 const SKY_COLOR: u32 = rgb_u8(70, 180, 245);
 
@@ -46,6 +49,7 @@ pub struct Scene {
     // Move to arena allocator eventually? https://docs.rs/typed-arena/2.0.1/typed_arena/
     // Also may have to use Rc instead of Box
     pub objects: Vec<Rc<dyn Intersectable>>,
+    pub lights: Vec<Rc<dyn LightEmitting>>,
 }
 
 // uv (0, 0) is top left
@@ -69,7 +73,8 @@ pub fn render(camera: &Camera, scene: &Scene, size: (usize, usize)) -> Vec<u32> 
 
 fn pixel(camera: &Camera, scene: &Scene, uv: Vec2) -> u32 {
     if let Some(ray_result) = raycast(&camera.ray(uv), scene) {
-        rgb_vec(ray_result.ray_hit.surface_normal.abs())
+        // rgb_vec(ray_result.ray_hit.surface_normal.abs())
+        rgb_vec(light(&ray_result.ray_hit, scene))
     } else {
         SKY_COLOR
     }
@@ -88,6 +93,31 @@ fn raycast(ray: &Ray, scene: &Scene) -> Option<RayPayload> {
     }
 
     closest_hit
+}
+
+fn light(rayhit: &RayHit, scene: &Scene) -> Vec3 {
+    
+    let mut cumulative_light: Vec3 = Vec3::ZERO;
+
+    // TODO los caycast is not functioning correctly, lighting looks correct when shadowing logic is not included
+    for light in scene.lights.iter() {
+        // Check LOS first, see if we hit anything on the way to the light
+        // let los_ray = Ray {
+        //     position: rayhit.position + rayhit.surface_normal * 0.01,
+        //     direction: light.dir_from(&rayhit.position)
+        // };
+
+        // if let Some(los_rayhit) = raycast(&los_ray, scene) {
+        //     // If we hit something, then we are in shadow for this light source
+        //     continue;
+        // } else {
+        //     cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
+        // }
+        cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
+
+    }
+
+    cumulative_light
 }
 
 fn rgb_f32(r: f32, g: f32, b: f32) -> u32 {

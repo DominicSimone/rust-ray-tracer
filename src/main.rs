@@ -2,10 +2,10 @@ use std::rc::Rc;
 
 use glam::Vec3;
 use minifb::{Key, Window, WindowOptions};
-use rust_ray_tracer::{render, Camera, Scene, objects::*};
+use rust_ray_tracer::{render, Camera, Scene, objects::*, lights::*};
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 360;
+const WIDTH: usize = 500;
+const HEIGHT: usize = 500;
 
 fn main() {
     let mut window = Window::new(
@@ -28,6 +28,7 @@ fn main() {
 
     let mut scene = Scene::default();
     scene.objects.push(Rc::new(Sphere::default()));
+    scene.lights.push(Rc::new(DirectionalLight::default()));
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let size = (window.get_size().0, window.get_size().1);

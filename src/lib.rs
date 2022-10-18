@@ -1,14 +1,15 @@
-pub mod objects;
 pub mod lights;
+pub mod math;
+pub mod objects;
 
 use std::rc::Rc;
 
-use crate::objects::{Intersectable, RayHit};
 use crate::lights::*;
+use crate::objects::{Intersectable, RayHit};
 
 use glam::{Vec2, Vec3};
 
-const SKY_COLOR: u32 = rgb_u8(70, 180, 245);
+const SKY_COLOR: [f32; 3] = [70., 180., 245.];
 
 pub struct Ray {
     position: Vec3,
@@ -36,7 +37,8 @@ impl Camera {
     }
 
     pub fn ray(&self, uv: Vec2) -> Ray {
-        let target = self.position + self.forward - uv.y * self.up + uv.x * self.up.cross(self.forward);
+        let target =
+            self.position + self.forward - uv.y * self.up + uv.x * self.up.cross(self.forward);
         Ray {
             position: self.position,
             direction: target - self.position,
@@ -71,23 +73,49 @@ pub fn render(camera: &Camera, scene: &Scene, size: (usize, usize)) -> Vec<u32> 
     buffer
 }
 
+// TODO This is broken somewhere
 fn pixel(camera: &Camera, scene: &Scene, uv: Vec2) -> u32 {
-    if let Some(ray_result) = raycast(&camera.ray(uv), scene) {
-        // rgb_vec(ray_result.ray_hit.surface_normal)
-        rgb_vec(light(&ray_result.ray_hit, scene))
+    let color = ray_color(&camera.ray(uv), scene, 2, None);
+    rgb_vec(color)
+}
+
+fn ray_color(ray: &Ray, scene: &Scene, depth: u32, prev_result: Option<RayPayload>) -> Vec3 {
+    if depth == 0 {
+        return Vec3::new(0., 0., 0.);
+    }
+
+    if let Some(ray_result) = raycast(&ray, scene) {
+        let reflect_direction = math::reflect(ray.direction, ray_result.ray_hit.surface_normal);
+        let new_ray = Ray {
+            position: ray_result.ray_hit.position + reflect_direction * 0.001,
+            direction: reflect_direction,
+        };
+        if depth == 1 {
+            return 0.5 * light(&ray_result.ray_hit, scene)
+        } else {
+            return 0.5 * ray_color(&new_ray, scene, depth - 1, Some(ray_result));
+        }
+    }
+
+    if let Some(ray_payload) = prev_result {
+        light(&ray_payload.ray_hit, scene)
     } else {
-        SKY_COLOR
+        Vec3::from(SKY_COLOR)
     }
 }
 
 fn raycast(ray: &Ray, scene: &Scene) -> Option<RayPayload> {
     let mut closest_hit: Option<RayPayload> = None;
-    let min_t: f32 = f32::MAX;
+    let mut min_t: f32 = f32::MAX;
 
     for object in scene.objects.iter() {
         if let Some(hit) = object.intersects(ray) {
             if hit.t < min_t {
-                closest_hit = Some(RayPayload { hit_obj: object.clone(), ray_hit: hit });
+                min_t = hit.t;
+                closest_hit = Some(RayPayload {
+                    hit_obj: object.clone(),
+                    ray_hit: hit,
+                });
             }
         }
     }
@@ -96,21 +124,19 @@ fn raycast(ray: &Ray, scene: &Scene) -> Option<RayPayload> {
 }
 
 fn light(rayhit: &RayHit, scene: &Scene) -> Vec3 {
-    
     let mut cumulative_light: Vec3 = Vec3::ZERO;
 
     for light in scene.lights.iter() {
         // Check LOS first, see if we hit anything on the way to the light
+        let to_light = light.dir_from(&rayhit.position);
         let los_ray = Ray {
-            position: rayhit.position + rayhit.surface_normal * 0.001,
-            direction: light.dir_from(&rayhit.position)
+            position: rayhit.position + to_light * 0.001,
+            direction: to_light,
         };
 
-        if let Some(los_rayhit) = raycast(&los_ray, scene) {
+        if let None = raycast(&los_ray, scene) {
             // If we hit something, then we are in shadow for this light source
-            continue;
-        } else {
-            cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal); 
+            cumulative_light += light.light_on(&rayhit.position, &rayhit.surface_normal);
         }
     }
 
@@ -126,8 +152,4 @@ fn rgb_f32(r: f32, g: f32, b: f32) -> u32 {
 
 fn rgb_vec(rgb: Vec3) -> u32 {
     rgb_f32(rgb.x, rgb.y, rgb.z)
-}
-
-const fn rgb_u8(r: u8, g: u8, b: u8) -> u32 {
-    (r as u32) << 16 | (g as u32) << 8 | (b as u32)
 }

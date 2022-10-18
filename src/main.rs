@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use glam::Vec3;
 use minifb::{Key, Window, WindowOptions};
-use rust_ray_tracer::{render, Camera, Scene, objects::*, lights::*};
+use rust_ray_tracer::{lights::*, objects::*, math::*, render, Camera, Scene};
 
 const WIDTH: usize = 500;
 const HEIGHT: usize = 500;
@@ -24,10 +24,14 @@ fn main() {
     // Limit to max ~60 fps update rate
     window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
-    let camera: Camera = Camera::new(Vec3::from([0., 0., 3.]), Vec3::from([0., 0., -1.]));
+    let camera: Camera = Camera::new(Vec3::from([0., 0., 4.]), Vec3::from([0., 0., -1.]));
 
     let mut scene = Scene::default();
     scene.objects.push(Rc::new(Sphere::default()));
+    scene.objects.push(Rc::new(Sphere {
+        position: Vec3::new(2., 0.5, -1.),
+        radius: 1.,
+    }));
     scene.lights.push(Rc::new(DirectionalLight::default()));
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
